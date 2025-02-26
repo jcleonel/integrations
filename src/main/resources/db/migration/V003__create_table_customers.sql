@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS customers (
+    id BIGSERIAL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    cpf VARCHAR(255) NOT NULL,
+    CONSTRAINT pk_customers PRIMARY KEY (id)
+)

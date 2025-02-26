@@ -3,7 +3,7 @@ package com.sensedia.desafio.integrations.controller;
 import com.sensedia.desafio.integrations.api.ProductApi;
 import com.sensedia.desafio.integrations.dto.request.ProductRequestDTO;
 import com.sensedia.desafio.integrations.dto.response.ProductResponseDTO;
-import com.sensedia.desafio.integrations.service.ProductService;
+import com.sensedia.desafio.integrations.service.product.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

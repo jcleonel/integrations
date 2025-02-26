@@ -6,6 +6,7 @@ import com.sensedia.desafio.integrations.dto.response.ProductResponseDTO;
 import com.sensedia.desafio.integrations.exception.RequiredObjectIsNullException;
 import com.sensedia.desafio.integrations.mocks.MockProduct;
 import com.sensedia.desafio.integrations.repository.ProductRepository;
+import com.sensedia.desafio.integrations.service.product.ProductServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;

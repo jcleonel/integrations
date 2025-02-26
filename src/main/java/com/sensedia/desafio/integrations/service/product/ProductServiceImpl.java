@@ -1,4 +1,4 @@
-package com.sensedia.desafio.integrations.service;
+package com.sensedia.desafio.integrations.service.product;
 
 import com.sensedia.desafio.integrations.controller.ProductController;
 import com.sensedia.desafio.integrations.domain.Product;

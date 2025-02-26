@@ -1,4 +1,4 @@
-package com.sensedia.desafio.integrations.service;
+package com.sensedia.desafio.integrations.service.product;
 
 import com.sensedia.desafio.integrations.dto.request.ProductRequestDTO;
 import com.sensedia.desafio.integrations.dto.response.ProductResponseDTO;
