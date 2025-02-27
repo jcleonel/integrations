@@ -9,6 +9,7 @@ import com.sensedia.desafio.integrations.dto.response.OrderItemResponseDTO;
 import com.sensedia.desafio.integrations.dto.response.OrderResponseDTO;
 import com.sensedia.desafio.integrations.exception.InsufficientStockException;
 import com.sensedia.desafio.integrations.exception.NotFoundException;
+import com.sensedia.desafio.integrations.messaging.OrderMessagePublisher;
 import com.sensedia.desafio.integrations.repository.CustomerRepository;
 import com.sensedia.desafio.integrations.repository.OrderRepository;
 import com.sensedia.desafio.integrations.repository.ProductRepository;
@@ -33,6 +34,9 @@ public class OrderServiceImpl implements OrderService {
     private CustomerRepository customerRepository;
     @Autowired
     private ProductRepository productRepository;
+    @Autowired
+    private OrderMessagePublisher orderMessagePublisher;
+
 
     @Override
     @Transactional
@@ -119,6 +123,9 @@ public class OrderServiceImpl implements OrderService {
 
         order.setStatus(newStatus);
         orderRepository.save(order);
+
+        orderMessagePublisher.publishOrderStatusChange(order);
+
         return mapToDTO(order);
     }
 
