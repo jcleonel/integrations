@@ -29,6 +29,12 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(exceptionResponse, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(UnsupportedOperationException.class)
+    public final ResponseEntity<ErrorResponse> handleUnsupportedOperationException(Exception ex, WebRequest request) {
+        ErrorResponse exceptionResponse = new ErrorResponse(new Date(), "BAD_REQUEST", ex.getMessage());
+        return new ResponseEntity<>(exceptionResponse, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         ErrorResponse errorResponse = new ErrorResponse(new Date(),"INTERNAL_SERVER_ERROR", ex.getMessage());
