@@ -19,3 +19,9 @@ spring:
     port: 5672
     username: guest
     password: guest
+
+security:
+  jwt:
+    token:
+      secret-key: desafio-integrations-secret-key
+      expire-lenght: 3600000

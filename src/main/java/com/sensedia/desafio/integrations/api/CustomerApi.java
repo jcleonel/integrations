@@ -1,5 +1,6 @@
 package com.sensedia.desafio.integrations.api;
 
+import com.sensedia.desafio.integrations.config.SecurityConfig;
 import com.sensedia.desafio.integrations.dto.request.CustomerRequestDTO;
 import com.sensedia.desafio.integrations.dto.response.CustomerResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -7,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import java.util.List;
 
 @RequestMapping("/customers")
 @Tag(name = "Customer")
+@SecurityRequirement(name = SecurityConfig.SECURITY)
 public interface CustomerApi {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE,

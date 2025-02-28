@@ -1,5 +1,6 @@
 package com.sensedia.desafio.integrations.api;
 
+import com.sensedia.desafio.integrations.config.SecurityConfig;
 import com.sensedia.desafio.integrations.dto.request.OrderRequestDTO;
 import com.sensedia.desafio.integrations.dto.request.OrderStatusUpdateRequestDTO;
 import com.sensedia.desafio.integrations.dto.response.OrderResponseDTO;
@@ -8,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +21,7 @@ import java.util.List;
 
 @RequestMapping("/orders")
 @Tag(name = "Order")
+@SecurityRequirement(name = SecurityConfig.SECURITY)
 public interface OrderApi {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE,

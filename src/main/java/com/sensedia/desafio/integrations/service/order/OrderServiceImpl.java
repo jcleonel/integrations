@@ -7,12 +7,13 @@ import com.sensedia.desafio.integrations.dto.request.OrderRequestDTO;
 import com.sensedia.desafio.integrations.dto.request.OrderStatusUpdateRequestDTO;
 import com.sensedia.desafio.integrations.dto.response.OrderItemResponseDTO;
 import com.sensedia.desafio.integrations.dto.response.OrderResponseDTO;
-import com.sensedia.desafio.integrations.exception.InsufficientStockException;
 import com.sensedia.desafio.integrations.exception.NotFoundException;
 import com.sensedia.desafio.integrations.messaging.OrderMessagePublisher;
 import com.sensedia.desafio.integrations.repository.CustomerRepository;
 import com.sensedia.desafio.integrations.repository.OrderRepository;
 import com.sensedia.desafio.integrations.repository.ProductRepository;
+import com.sensedia.desafio.integrations.service.stock.StockService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,11 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @Service
+@RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
     @Autowired
@@ -36,59 +39,76 @@ public class OrderServiceImpl implements OrderService {
     private ProductRepository productRepository;
     @Autowired
     private OrderMessagePublisher orderMessagePublisher;
-
+    @Autowired
+    private StockService stockService;
 
     @Override
     @Transactional
     public OrderResponseDTO createOrder(OrderRequestDTO orderRequest) {
+        Customer customer = getCustomerById(orderRequest.getCustomerId());
+        Order order = initializeOrder(customer);
+        
+        processOrderItems(order, orderRequest.getItems());
+        
+        Order savedOrder = orderRepository.save(order);
+        return mapToDTO(savedOrder);
+    }
 
-        Customer customer = customerRepository.findById(orderRequest.getCustomerId())
+    private Customer getCustomerById(Long customerId) {
+        return customerRepository.findById(customerId)
                 .orElseThrow(() -> new NotFoundException("Customer not found"));
+    }
 
-        Order order = Order.builder()
+    private Order initializeOrder(Customer customer) {
+        return Order.builder()
                 .customer(customer)
                 .status(OrderStatusEnum.PENDING)
                 .orderDate(LocalDateTime.now())
                 .build();
+    }
 
+    private void processOrderItems(Order order, List<OrderItemRequestDTO> itemRequests) {
         BigDecimal totalPrice = BigDecimal.ZERO;
 
-        for (OrderItemRequestDTO itemRequest : orderRequest.getItems()) {
-            Product product = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(() -> new NotFoundException("Product not found: ID " + itemRequest.getProductId()));
-
-            if (product.getStock() < itemRequest.getQuantity()) {
-                throw new InsufficientStockException("Insufficient stock for the product: " + product.getName());
-            }
-
-            product.setStock(product.getStock() - itemRequest.getQuantity());
-            productRepository.save(product);
-
-            BigDecimal itemTotal = product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
-
-            OrderItem orderItem = OrderItem.builder()
-                    .order(order)
-                    .product(product)
-                    .quantity(itemRequest.getQuantity())
-                    .price(itemTotal)
-                    .build();
-
+        for (OrderItemRequestDTO itemRequest : itemRequests) {
+            Product product = getProductById(itemRequest.getProductId());
+            stockService.validateStock(product, itemRequest.getQuantity());
+            stockService.updateStock(product, itemRequest.getQuantity());
+            
+            OrderItem orderItem = createOrderItem(order, product, itemRequest.getQuantity());
             order.getItems().add(orderItem);
-            totalPrice = totalPrice.add(itemTotal);
+            
+            totalPrice = totalPrice.add(orderItem.getPrice());
         }
 
         order.setTotalPrice(totalPrice);
-        Order saved = orderRepository.save(order);
-        return mapToDTO(saved);
+    }
 
+    private Product getProductById(Long productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new NotFoundException("Product not found: ID " + productId));
+    }
+
+    private OrderItem createOrderItem(Order order, Product product, int quantity) {
+        BigDecimal itemTotal = product.getPrice().multiply(BigDecimal.valueOf(quantity));
+        
+        return OrderItem.builder()
+                .order(order)
+                .product(product)
+                .quantity(quantity)
+                .price(itemTotal)
+                .build();
     }
 
     @Override
     public OrderResponseDTO getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Order not found: ID " + id));
-
+        Order order = findOrderById(id);
         return mapToDTO(order);
+    }
+
+    private Order findOrderById(Long id) {
+        return orderRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Order not found: ID " + id));
     }
 
     @Override
@@ -100,40 +120,36 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponseDTO updateOrderStatus(Long id, OrderStatusUpdateRequestDTO statusRequest) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Order not found: ID " + id));
-
+        Order order = findOrderById(id);
         OrderStatusEnum newStatus = statusRequest.getStatus();
 
-        if (order.getStatus() == OrderStatusEnum.CANCELED) {
-            throw new UnsupportedOperationException("Order " + id + " has a canceled status");
-        }
-
-        if (newStatus == OrderStatusEnum.CANCELED && order.getStatus() != OrderStatusEnum.PENDING) {
-            throw new UnsupportedOperationException("Only pending orders can be canceled");
-        }
-
+        validateStatusTransition(order, newStatus);
+        
         if (newStatus == OrderStatusEnum.CANCELED) {
-            for (OrderItem item : order.getItems()) {
-                Product product = item.getProduct();
-                product.setStock(product.getStock() + item.getQuantity());
-                productRepository.save(product);
-            }
+            stockService.returnItemsToStock(order.getItems());
         }
 
         order.setStatus(newStatus);
         orderRepository.save(order);
-
         orderMessagePublisher.publishOrderStatusChange(order);
 
         return mapToDTO(order);
     }
 
+    private void validateStatusTransition(Order order, OrderStatusEnum newStatus) {
+        if (order.getStatus() == OrderStatusEnum.CANCELED) {
+            throw new UnsupportedOperationException("Order " + order.getId() + " has a canceled status");
+        }
+
+        if (newStatus == OrderStatusEnum.CANCELED && order.getStatus() != OrderStatusEnum.PENDING) {
+            throw new UnsupportedOperationException("Only pending orders can be canceled");
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
     public Page<OrderResponseDTO> getAllOrders(Pageable pageable) {
-        Page<Order> orders = orderRepository.findAll(pageable);
-        return orders.map(this::mapToDTO);
+        return orderRepository.findAll(pageable).map(this::mapToDTO);
     }
 
     private OrderResponseDTO mapToDTO(Order order) {
@@ -145,18 +161,22 @@ public class OrderServiceImpl implements OrderService {
                 .status(order.getStatus())
                 .totalPrice(order.getTotalPrice())
                 .orderDate(String.valueOf(order.getOrderDate()))
-                .items(order.getItems().stream().map(item ->
-                        OrderItemResponseDTO.builder()
-                                .productId(item.getProduct().getId())
-                                .quantity(item.getQuantity())
-                                .price(item.getPrice())
-                                .build()
-                ).toList())
+                .items(mapOrderItems(order.getItems()))
                 .build();
 
         return responseDTO.add(linkTo(methodOn(OrderController.class)
                 .getById(id))
                 .withSelfRel()
         );
+    }
+
+    private List<OrderItemResponseDTO> mapOrderItems(List<OrderItem> items) {
+        return items.stream()
+                .map(item -> OrderItemResponseDTO.builder()
+                        .productId(item.getProduct().getId())
+                        .quantity(item.getQuantity())
+                        .price(item.getPrice())
+                        .build())
+                .toList();
     }
 }

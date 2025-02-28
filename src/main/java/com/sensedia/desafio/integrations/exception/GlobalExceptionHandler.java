@@ -35,6 +35,18 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(exceptionResponse, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(InvalidJwtAuthenticationException.class)
+    public final ResponseEntity<ErrorResponse> handleInvalidJwtAuthenticationException(Exception ex, WebRequest request) {
+        ErrorResponse exceptionResponse = new ErrorResponse(new Date(), "FORBIDDEN", ex.getMessage());
+        return new ResponseEntity<>(exceptionResponse, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(InvalidClientException.class)
+    public final ResponseEntity<ErrorResponse> handleCredentialsInvalidException(Exception ex, WebRequest request) {
+        ErrorResponse exceptionResponse = new ErrorResponse(new Date(), "FORBIDDEN", ex.getMessage());
+        return new ResponseEntity<>(exceptionResponse, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         ErrorResponse errorResponse = new ErrorResponse(new Date(),"INTERNAL_SERVER_ERROR", ex.getMessage());
